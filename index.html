@@ -771,14 +771,15 @@ async function renderLB(){
   $('lbr').innerHTML='<div class="empty"><div class="ei">⏳</div>Syncing…</div>';
   await dbSave();await new Promise(r=>setTimeout(r,600));
   let entries=[];
-  try{const{data}=await sb.from('traders').select('username,name,net_worth,pnl,trade_count,joined_at').order('net_worth',{ascending:false});entries=data||[];}catch(e){}
+  try{const{data}=await sb.from('traders').select('username,name,net_worth,pnl,realised_pnl,trade_count,orders,joined_at').order('net_worth',{ascending:false});entries=data||[];}catch(e){}
   if(!entries.length){$('lbr').innerHTML='<div class="empty"><div class="ei">🏆</div>No traders yet!</div>';return;}
-  if(cu){const{tv,total}=calcPnl(),liveNet=S.ccash+S.scash+tv;entries=entries.map(e=>e.username===cu.username?{...e,net_worth:liveNet,pnl:total,trade_count:S.orders.length}:e).sort((a,b)=>(b.net_worth||0)-(a.net_worth||0));}
+  if(cu){const{tv,total}=calcPnl(),liveNet=S.ccash+S.scash+tv;entries=entries.map(e=>e.username===cu.username?{...e,net_worth:liveNet,pnl:total,realised_pnl:S.rPnl||0,trade_count:S.orders.length}:e).sort((a,b)=>(b.net_worth||0)-(a.net_worth||0));}
   $('lbr').innerHTML=entries.map((e,i)=>{
-    const isMe=e.username===cu?.username,medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`<span style="font-size:.85rem;color:var(--t2)">#${i+1}</span>`,pv=e.pnl||0;
-    const pnlHtml=Math.abs(pv)<.01?'<span style="color:var(--t2)">$0.00</span>':`<span class="${pv>0?'g':'r'}">${pv>0?'▲ ':'▼ '}${fU(Math.abs(pv))}</span>`;
+    const isMe=e.username===cu?.username,medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`<span style="font-size:.85rem;color:var(--t2)">#${i+1}</span>`;
+    const pv=e.pnl||0,rpv=e.realised_pnl||0,tc=e.trade_count||(Array.isArray(e.orders)?e.orders.length:0);
+    const pnlHtml=Math.abs(pv)<.01?'<span style="color:var(--t2)">—</span>':`<div><span class="${pv>0?'g':'r'}" style="font-size:.82rem">${pv>0?'▲ ':'▼ '}${fU(Math.abs(pv))}</span>${Math.abs(rpv)>.01?`<div style="font-size:.65rem;color:var(--t2)">Realised: <span class="${rpv>0?'g':'r'}">${fU(rpv)}</span></div>`:''}</div>`;
     const joined=e.joined_at?new Date(e.joined_at).toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'2-digit'}):'—';
-    return`<div class="row ${isMe?'lbme':''}" style="grid-template-columns:48px 1.4fr 1fr 1fr 1fr .8fr;animation-delay:${i*.04}s"><div style="text-align:center;font-size:1.1rem">${medal}</div><div><div class="an">${e.name}${isMe?' <span style="font-size:.62rem;background:rgba(108,127,255,.2);color:var(--ac);padding:1px 6px;border-radius:4px;margin-left:4px">YOU</span>':''}</div><div class="asy">@${e.username}</div></div><div><div class="mo">${fU(e.net_worth)}</div><div class="ic">${fINR(e.net_worth)}</div></div><div class="mo">${pnlHtml}</div><div>${e.trade_count>0?`<span style="font-size:.72rem;background:rgba(0,229,160,.1);color:var(--g);padding:2px 8px;border-radius:4px">${e.trade_count} trades</span>`:`<span style="font-size:.72rem;background:rgba(255,255,255,.04);color:var(--t3);padding:2px 8px;border-radius:4px">New</span>`}</div><div style="font-size:.67rem;color:var(--t2)">${joined}</div></div>`;
+    return`<div class="row ${isMe?'lbme':''}" style="grid-template-columns:48px 1.4fr 1fr 1fr 1fr .8fr;animation-delay:${i*.04}s"><div style="text-align:center;font-size:1.1rem">${medal}</div><div><div class="an">${e.name}${isMe?' <span style="font-size:.62rem;background:rgba(108,127,255,.2);color:var(--ac);padding:1px 6px;border-radius:4px;margin-left:4px">YOU</span>':''}</div><div class="asy">@${e.username}</div></div><div><div class="mo">${fU(e.net_worth)}</div><div class="ic">${fINR(e.net_worth)}</div></div><div>${pnlHtml}</div><div>${tc>0?`<span style="font-size:.72rem;background:rgba(0,229,160,.1);color:var(--g);padding:2px 8px;border-radius:4px">${tc} trade${tc!==1?'s':''}</span>`:`<span style="font-size:.72rem;background:rgba(255,255,255,.04);color:var(--t3);padding:2px 8px;border-radius:4px">New</span>`}</div><div style="font-size:.67rem;color:var(--t2)">${joined}</div></div>`;
   }).join('');
 }
 
