@@ -470,11 +470,13 @@ function lsLoad(u){try{const d=JSON.parse(localStorage.getItem('tx3_'+u)||'null'
 
 async function dbSave(){
   if(!cu)return;lsSave();
-  const hasPrices=Object.keys(prices).length>0;
-  const{tv}=calcPnl(),{total:pnl}=calcPnl();
-  const payload={username:cu.username,name:cu.name,ccash:S.ccash,scash:S.scash,holdings:S.h,orders:S.orders,budget:S.budget,inv:S.inv,realised_pnl:S.rPnl,pnl:hasPrices?pnl:undefined,net_worth:hasPrices?S.ccash+S.scash+tv:undefined,trade_count:S.orders.length,updated_at:new Date().toISOString()};
-  if(!hasPrices){delete payload.pnl;delete payload.net_worth;}
-  for(let i=0;i<3;i++){try{const{error}=await sb.from('traders').upsert(payload,{onConflict:'username'});if(!error)return;}catch(e){}await new Promise(r=>setTimeout(r,1000));}
+  try{
+    const{tv,total:pnl}=calcPnl();
+    const hasPrices=Object.keys(prices).length>0;
+    const payload={username:cu.username,name:cu.name,ccash:S.ccash,scash:S.scash,holdings:S.h,orders:S.orders,budget:S.budget,inv:S.inv,realised_pnl:S.rPnl||0,trade_count:S.orders.length,updated_at:new Date().toISOString()};
+    if(hasPrices){payload.pnl=pnl;payload.net_worth=S.ccash+S.scash+tv;}
+    await sb.from('traders').upsert(payload,{onConflict:'username'});
+  }catch(e){}
 }
 async function dbLoad(u){
   let remote=null;
