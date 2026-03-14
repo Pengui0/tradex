@@ -131,7 +131,7 @@ canvas#spark{width:100%;height:120px;display:block}
 .empty{padding:36px;text-align:center;color:var(--t3);font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:8px}
 .ei{font-size:1.8rem;opacity:.2}
 .flt{display:flex;gap:5px;flex-wrap:wrap;padding:0 0 10px}
-.fc{padding:4px 12px;border-radius:20px;border:1px solid var(--b);background:var(--card);color:var(--t2);font-size:.7rem;font-weight:500;cursor:pointer;transition:all .14px}
+.fc{padding:4px 12px;border-radius:20px;border:1px solid var(--b);background:var(--card);color:var(--t2);font-size:.7rem;font-weight:500;cursor:pointer;transition:all .14s}
 .fc:hover{border-color:var(--ac);color:var(--ac)}.fc.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .bal{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:9px;font-size:.74rem;margin-top:9px}
 .bal.ok{background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.2);color:var(--g)}
@@ -374,7 +374,7 @@ canvas#spark{width:100%;height:120px;display:block}
 
 <div class="pg" id="pg-leaderboard">
   <div class="sec">
-    <div class="sh"><div class="st2">🏆 Leaderboard</div><div style="display:flex;gap:8px;align-items:center"><span class="ssb">Ranked by net worth</span><button onclick="_lbCache=null;renderLB()" style="padding:3px 10px;background:var(--bg);color:var(--t2);border:1px solid var(--b);border-radius:5px;font-size:.7rem;cursor:pointer">↻ Refresh</button></div></div>
+    <div class="sh"><div class="st2">🏆 Leaderboard</div><div style="display:flex;gap:8px;align-items:center"><span class="ssb">Ranked by net worth</span><button onclick="renderLB()" style="padding:3px 10px;background:var(--bg);color:var(--t2);border:1px solid var(--b);border-radius:5px;font-size:.7rem;cursor:pointer">↻ Refresh</button></div></div>
     <div class="th" style="grid-template-columns:48px 1.4fr 1fr 1fr 1fr .8fr"><span>#</span><span>Trader</span><span>Net Worth</span><span>Total P&amp;L</span><span>Trades</span><span>Joined</span></div>
     <div id="lbr"><div class="empty"><div class="ei">🏆</div>Loading…</div></div>
   </div>
@@ -437,7 +437,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 const INR=83.5,$=id=>document.getElementById(id);
 const FRESH=()=>({ccash:100000,scash:10000,h:{},orders:[],budget:0,inv:0,rPnl:0});
 let S=FRESH(),prices={},selId=null,mode='buy',ltab='stocks',curPage='trade',secF='All',cu=null,_iv=[];
-let CX=[],SX=[],ALL=[],MAP={},SECTS=['All'],_lbCache=null;
+let CX=[],SX=[],ALL=[],MAP={},SECTS=['All'];
 const isCrypto=id=>!!CX.find(c=>c.id===id);
 
 async function loadAssets(){
@@ -465,70 +465,22 @@ const fP=n=>isNaN(n)?'—':(n>=0?'+':'')+n.toFixed(2)+'%';
 const fT=ts=>{const d=new Date(ts);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});};
 const colorClass=n=>n>=0?'g':'r';
 
-// ── BULLETPROOF SAVE: always stamps a timestamp ──
-function lsSave(){
-  if(!cu)return;
-  try{
-    localStorage.setItem('tx3_'+cu.username,JSON.stringify({
-      ccash:S.ccash,scash:S.scash,h:S.h,
-      orders:S.orders,budget:S.budget,inv:S.inv,rPnl:S.rPnl
-    }));
-    localStorage.setItem('tx3_ts_'+cu.username,Date.now().toString());
-  }catch(e){}
-}
-
-function lsLoad(u){
-  try{
-    const d=JSON.parse(localStorage.getItem('tx3_'+u)||'null');
-    const ts=parseInt(localStorage.getItem('tx3_ts_'+u)||'0');
-    if(d?.ccash!==undefined)return{...d,_ts:ts};
-  }catch(e){}
-  return null;
-}
-
-// ── BULLETPROOF LOAD: always picks the most recently saved version ──
-async function dbLoad(u){
-  let remote=null,remoteTs=0;
-  try{
-    const{data,error}=await sb.from('traders').select('*').eq('username',u).single();
-    if(!error&&data?.ccash!==undefined){
-      remoteTs=data.updated_at?new Date(data.updated_at).getTime():0;
-      remote={
-        ccash:data.ccash,scash:data.scash,
-        h:data.holdings||{},orders:data.orders||[],
-        budget:data.budget||0,inv:data.inv||0,rPnl:data.realised_pnl||0,
-        _ts:remoteTs
-      };
-    }
-  }catch(e){}
-  const local=lsLoad(u);
-  // ALWAYS pick whichever was saved most recently — no data loss
-  if(remote&&local){
-    const localTs=local._ts||0;
-    return localTs>=remoteTs?local:remote;
-  }
-  return remote||local||null;
-}
+function lsSave(){if(!cu)return;try{localStorage.setItem('tx3_'+cu.username,JSON.stringify({ccash:S.ccash,scash:S.scash,h:S.h,orders:S.orders,budget:S.budget,inv:S.inv,rPnl:S.rPnl}));}catch(e){}}
+function lsLoad(u){try{const d=JSON.parse(localStorage.getItem('tx3_'+u)||'null');if(d?.ccash!==undefined)return d;}catch(e){}return null;}
 
 async function dbSave(){
-  if(!cu)return;
-  lsSave(); // always save locally first
+  if(!cu||!S.ccash)return;
   try{
     const{tv,total:pnl}=calcPnl();
-    const hasPrices=Object.keys(prices).length>0;
-    const payload={
-      username:cu.username,name:cu.name,
-      ccash:S.ccash,scash:S.scash,
-      holdings:S.h,orders:S.orders,
-      budget:S.budget,inv:S.inv,
-      realised_pnl:S.rPnl||0,
-      trade_count:S.orders.length,
-      updated_at:new Date().toISOString()
-    };
-    if(hasPrices){payload.pnl=pnl;payload.net_worth=S.ccash+S.scash+tv;}
-    const{error}=await sb.from('traders').upsert(payload,{onConflict:'username',ignoreDuplicates:false});
-    if(error)console.warn('dbSave warn:',error.message);
-  }catch(e){console.warn('dbSave failed (local backup is safe):',e.message);}
+    await sb.from('traders').upsert({username:cu.username,name:cu.name,ccash:S.ccash,scash:S.scash,holdings:S.h,orders:S.orders,budget:S.budget,inv:S.inv,realised_pnl:S.rPnl||0,pnl,net_worth:S.ccash+S.scash+tv,trade_count:S.orders.length,updated_at:new Date().toISOString()},{onConflict:'username'});
+  }catch(e){}
+}
+async function dbLoad(u){
+  let remote=null;
+  try{const{data,error}=await sb.from('traders').select('*').eq('username',u).single();if(!error&&data?.ccash!==undefined)remote={ccash:data.ccash,scash:data.scash,h:data.holdings||{},orders:data.orders||[],budget:data.budget||0,inv:data.inv||0,rPnl:data.realised_pnl||0};}catch(e){}
+  const local=lsLoad(u);
+  if(remote&&local)return(local.orders?.length||0)>(remote.orders?.length||0)?local:remote;
+  return remote||local||null;
 }
 
 function calcPnl(){
@@ -693,8 +645,7 @@ function execTrade(){
     S.orders.unshift({id:selId,name:a.name,sym:a.sym,type:'sell',price:pr.p,qty,total:proceeds,time:Date.now()});
     toast((proceeds-cost)>=0?'🟢 Sold (Profit)':'🔴 Sold (Loss)',a.sym+' → '+fU(proceeds)+' (P&L: '+fU(proceeds-cost)+')','success');
   }
-  lsSave();// save locally immediately
-  dbSave().then(()=>{_lbCache=null;});
+  lsSave();dbSave().then(()=>{if(curPage==='leaderboard')renderLB();});
   $('tusd').value='';$('tqty').value='';$('uh').textContent='';refAll();
 }
 
@@ -724,7 +675,7 @@ function quickSell(id){
   const proceeds=h.qty*pr.p,cost=h.avgBuy*h.qty,wk=isCrypto(id)?'ccash':'scash';
   S.rPnl=(S.rPnl||0)+(proceeds-cost);S[wk]+=proceeds;
   S.orders.unshift({id,name:a.name,sym:a.sym,type:'sell',price:pr.p,qty:h.qty,total:proceeds,time:Date.now()});
-  delete S.h[id];lsSave();dbSave();_lbCache=null;
+  delete S.h[id];lsSave();dbSave();
   toast((proceeds-cost)>=0?'🟢 Closed (Profit)':'🔴 Closed (Loss)',a.sym+' → '+fU(proceeds)+' (P&L: '+fU(proceeds-cost)+')','success');
   refAll();
 }
@@ -754,6 +705,7 @@ function renderM(){
 }
 function renderSF(){$('sf').innerHTML=SECTS.map(s=>`<div class="fc ${s===secF?'on':''}" onclick="setSec('${s}')">${s}</div>`).join('');}
 function setSec(s){secF=s;renderSF();renderM();}
+
 function renderTick(){const s=ALL.map(a=>{const p=prices[a.id];if(!p)return'';const up=p.c>=0;return`<span class="ti"><span class="tis ${a.type==='c'?'c':'s'}">${a.sym}</span><span class="tip2">${fU(p.p)}</span><span class="tic ${up?'u':'d'}">${up?'▲':'▼'}${Math.abs(p.c).toFixed(2)}%</span></span>`;}).join('');$('tick').innerHTML=s+s;}
 
 function renderStats(){
@@ -815,39 +767,19 @@ function renderAlerts(){
   $('alf').innerHTML=fired.length?fired.map((a,i)=>{const as=MAP[a.id];return`<div class="alr" style="opacity:.5"><div style="font-size:.78rem;font-weight:600">${as?.name||a.id}</div><div><span class="badge ${a.dir==='above'?'u':'d'}">${a.dir==='above'?'≥':'≤'} ${fU(a.price)}</span></div><div style="font-size:.68rem;color:var(--g)">✓ Triggered</div><div></div><div><button class="ald" onclick="delAlert(${i},false)">✕</button></div></div>`;}).join(''):`<div class="empty"><div class="ei">📜</div>None triggered.</div>`;
 }
 
-// ── LEADERBOARD: instant cache, no delay, everyone's P&L visible ──
 async function renderLB(){
-  if(_lbCache){buildLBHTML(_lbCache);}
-  else{$('lbr').innerHTML='<div class="empty"><div class="ei">⏳</div>Loading…</div>';}
-  try{
-    const{data}=await sb.from('traders')
-      .select('username,name,net_worth,pnl,realised_pnl,trade_count,orders,joined_at')
-      .order('net_worth',{ascending:false});
-    if(data&&data.length){_lbCache=data;buildLBHTML(data);}
-    else if(!_lbCache){$('lbr').innerHTML='<div class="empty"><div class="ei">🏆</div>No traders yet!</div>';}
-  }catch(e){console.warn('LB:',e);}
-}
-function buildLBHTML(entries){
-  let list=[...entries];
-  if(cu){
-    const{tv,total}=calcPnl(),liveNet=S.ccash+S.scash+tv;
-    list=list.map(e=>e.username===cu.username?{...e,net_worth:liveNet,pnl:total,realised_pnl:S.rPnl||0,trade_count:S.orders.length}:e)
-      .sort((a,b)=>(b.net_worth||0)-(a.net_worth||0));
-  }
-  $('lbr').innerHTML=list.map((e,i)=>{
-    const isMe=e.username===cu?.username;
-    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`<span style="font-size:.85rem;color:var(--t2)">#${i+1}</span>`;
-    const pv=e.pnl??0,rpv=e.realised_pnl??0,tc=e.trade_count||(Array.isArray(e.orders)?e.orders.length:0);
-    const pnlHtml=`<div><span class="${pv>0?'g':'r'}" style="font-size:.82rem">${pv>0?'▲ ':'▼ '}${fU(Math.abs(pv))}</span>${Math.abs(rpv)>.01?`<div style="font-size:.65rem;color:var(--t2)">Realised: <span class="${rpv>0?'g':'r'}">${fU(rpv)}</span></div>`:''}</div>`;
+  $('lbr').innerHTML='<div class="empty"><div class="ei">⏳</div>Syncing…</div>';
+  await dbSave();await new Promise(r=>setTimeout(r,600));
+  let entries=[];
+  try{const{data}=await sb.from('traders').select('username,name,net_worth,pnl,realised_pnl,trade_count,orders,joined_at').order('net_worth',{ascending:false});entries=data||[];}catch(e){}
+  if(!entries.length){$('lbr').innerHTML='<div class="empty"><div class="ei">🏆</div>No traders yet!</div>';return;}
+  if(cu){const{tv,total}=calcPnl(),liveNet=S.ccash+S.scash+tv;entries=entries.map(e=>e.username===cu.username?{...e,net_worth:liveNet,pnl:total,realised_pnl:S.rPnl||0,trade_count:S.orders.length}:e).sort((a,b)=>(b.net_worth||0)-(a.net_worth||0));}
+  $('lbr').innerHTML=entries.map((e,i)=>{
+    const isMe=e.username===cu?.username,medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`<span style="font-size:.85rem;color:var(--t2)">#${i+1}</span>`;
+    const pv=e.pnl||0,rpv=e.realised_pnl||0,tc=e.trade_count||(Array.isArray(e.orders)?e.orders.length:0);
+    const pnlHtml=Math.abs(pv)<.01?'<span style="color:var(--t2)">—</span>':`<div><span class="${pv>0?'g':'r'}" style="font-size:.82rem">${pv>0?'▲ ':'▼ '}${fU(Math.abs(pv))}</span>${Math.abs(rpv)>.01?`<div style="font-size:.65rem;color:var(--t2)">Realised: <span class="${rpv>0?'g':'r'}">${fU(rpv)}</span></div>`:''}</div>`;
     const joined=e.joined_at?new Date(e.joined_at).toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'2-digit'}):'—';
-    return`<div class="row ${isMe?'lbme':''}" style="grid-template-columns:48px 1.4fr 1fr 1fr 1fr .8fr;animation-delay:${i*.04}s">
-      <div style="text-align:center;font-size:1.1rem">${medal}</div>
-      <div><div class="an">${e.name}${isMe?' <span style="font-size:.62rem;background:rgba(108,127,255,.2);color:var(--ac);padding:1px 6px;border-radius:4px;margin-left:4px">YOU</span>':''}</div><div class="asy">@${e.username}</div></div>
-      <div><div class="mo">${fU(e.net_worth)}</div><div class="ic">${fINR(e.net_worth)}</div></div>
-      <div>${pnlHtml}</div>
-      <div>${tc>0?`<span style="font-size:.72rem;background:rgba(0,229,160,.1);color:var(--g);padding:2px 8px;border-radius:4px">${tc} trade${tc!==1?'s':''}</span>`:`<span style="font-size:.72rem;background:rgba(255,255,255,.04);color:var(--t3);padding:2px 8px;border-radius:4px">New</span>`}</div>
-      <div style="font-size:.67rem;color:var(--t2)">${joined}</div>
-    </div>`;
+    return`<div class="row ${isMe?'lbme':''}" style="grid-template-columns:48px 1.4fr 1fr 1fr 1fr .8fr;animation-delay:${i*.04}s"><div style="text-align:center;font-size:1.1rem">${medal}</div><div><div class="an">${e.name}${isMe?' <span style="font-size:.62rem;background:rgba(108,127,255,.2);color:var(--ac);padding:1px 6px;border-radius:4px;margin-left:4px">YOU</span>':''}</div><div class="asy">@${e.username}</div></div><div><div class="mo">${fU(e.net_worth)}</div><div class="ic">${fINR(e.net_worth)}</div></div><div>${pnlHtml}</div><div>${tc>0?`<span style="font-size:.72rem;background:rgba(0,229,160,.1);color:var(--g);padding:2px 8px;border-radius:4px">${tc} trade${tc!==1?'s':''}</span>`:`<span style="font-size:.72rem;background:rgba(255,255,255,.04);color:var(--t3);padding:2px 8px;border-radius:4px">New</span>`}</div><div style="font-size:.67rem;color:var(--t2)">${joined}</div></div>`;
   }).join('');
 }
 
@@ -878,8 +810,7 @@ function chgPw(){
 
 function doReset(){
   if(!confirm('Reset your account?\nCrypto wallet → $100,000\nStock wallet → $10,000\nAll trades & positions will be cleared.'))return;
-  S=FRESH();lsSave();dbSave();_lbCache=null;
-  toast('Account Reset','Fresh start! Crypto: $100K · Stocks: $10K','success');refAll();
+  S=FRESH();lsSave();dbSave();toast('Account Reset','Fresh start! Crypto: $100K · Stocks: $10K','success');refAll();
 }
 function expCSV(){
   if(!S.orders.length){toast('No orders to export','','warn');return;}
@@ -944,7 +875,11 @@ async function loadSecQ(){
   if(user.length<3)return;
   try{
     const{data}=await sb.from('traders').select('username,sec_q').eq('username',user).single();
-    if(data?.sec_q){_fpUser=data.username;$('fpsq').textContent=data.sec_q;['fpsqa','fpsaa','fppa','fppa2'].forEach(id=>{$(id).style.display='';});}
+    if(data?.sec_q){
+      _fpUser=data.username;
+      $('fpsq').textContent=data.sec_q;
+      ['fpsqa','fpsaa','fppa','fppa2'].forEach(id=>{$(id).style.display='';});
+    }
   }catch{}
 }
 async function doForgot(){
@@ -973,43 +908,30 @@ async function boot(username,name,joinedAt,pwHsh){
   localStorage.setItem('txs3',JSON.stringify({username,name,joined:joinedAt,pwHash:pwHsh}));
   const ini=(name.split(' ').map(w=>w[0]||'').join('').substring(0,2)||name.substring(0,2)).toUpperCase();
   $('uav').textContent=ini;$('unm').textContent=name.split(' ')[0];$('umw').innerHTML='Signed in as <strong>'+name+'</strong>';
-  // Load best available data (timestamp-based, no data loss)
-  let saved=null;
-  try{saved=await dbLoad(username);}catch(e){}
-  if(saved){
-    S={
-      ccash:saved.ccash??100000,
-      scash:saved.scash??10000,
-      h:saved.h??{},
-      orders:saved.orders??[],
-      budget:saved.budget??0,
-      inv:saved.inv??0,
-      rPnl:saved.rPnl??0
-    };
-  }else{S=FRESH();}
-  await loadAssets();
-  lsSave();// stamp timestamp after load
+  let saved=null;try{saved=await dbLoad(username);}catch(e){}
+  if(saved)S={ccash:saved.ccash??100000,scash:saved.scash??10000,h:saved.h??{},orders:saved.orders??[],budget:saved.budget??0,inv:saved.inv??0,rPnl:saved.rPnl??0};
+  else S=FRESH();
+  await loadAssets();lsSave();
   $('auth').style.display='none';
   if(S.budget)$('bi').value=S.budget;
   ltab='stocks';$('sts').className='stab on';$('stc').className='stab';
   go('trade');setMode('buy');initStockPrices();
-  _iv.forEach(clearInterval);_iv=[];_lbCache=null;
+  _iv.forEach(clearInterval);_iv=[];
   fetchCryptoPrices();fetchStockPrices();
   _iv.push(
-    setInterval(fetchCryptoPrices,60000),
-    setInterval(fetchStockPrices,30000),
+    setInterval(fetchCryptoPrices,60000),setInterval(fetchStockPrices,30000),
     setInterval(()=>{chkAlerts();renderStats();renderSB();renderTick();if(curPage==='portfolio')renderPort();},5000),
     setInterval(()=>{if(cu)dbSave();},30000)
   );
 }
 
 function refAll(){renderSB();renderStats();if(selId&&prices[selId])pick(selId);renderPort();renderOrd();renderTick();if(curPage==='markets'){renderSF();renderM();}else if(curPage==='alerts')renderAlerts();else if(curPage==='profile')renderProfile();}
-function doLogout(){if(!confirm('Sign out?'))return;lsSave();dbSave();localStorage.removeItem('txs3');cu=null;_iv.forEach(clearInterval);_iv=[];_lbCache=null;clUM();$('lu').value='';$('lp').value='';swTab('l');ldCount();$('auth').style.display='flex';}
+function doLogout(){if(!confirm('Sign out?'))return;lsSave();dbSave();localStorage.removeItem('txs3');cu=null;_iv.forEach(clearInterval);_iv=[];clUM();$('lu').value='';$('lp').value='';swTab('l');ldCount();$('auth').style.display='flex';}
 function togUM(){$('umenu').classList.toggle('show');}function clUM(){$('umenu').classList.remove('show');}
 document.addEventListener('click',e=>{if(!e.target.closest('#ubtn')&&!e.target.closest('#umenu'))clUM();});
 document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const au=$('auth');if(au.style.display==='none')return;if($('fpf').style.display!=='none')doForgot();else if($('rf').style.display!=='none')doReg();else doLogin();});
 window.addEventListener('resize',()=>{if(selId&&prices[selId])drawSpark(selId);});
-window.addEventListener('beforeunload',()=>lsSave());// always save before tab closes
+window.addEventListener('beforeunload',()=>lsSave());
 
 (async()=>{
   ldCount();
@@ -1017,12 +939,8 @@ window.addEventListener('beforeunload',()=>lsSave());// always save before tab c
   try{
     const sess=JSON.parse(localStorage.getItem('txs3')||'null');
     if(sess?.username){
-      try{
-        const{data}=await sb.from('traders').select('username,name,joined_at,pw_hash').eq('username',sess.username).single();
-        if(data){await boot(data.username,data.name,data.joined_at,data.pw_hash);return;}
-      }catch{
-        if(sess.name){await boot(sess.username,sess.name,sess.joined||new Date().toISOString(),sess.pwHash||'');return;}
-      }
+      try{const{data}=await sb.from('traders').select('username,name,joined_at,pw_hash').eq('username',sess.username).single();if(data){await boot(data.username,data.name,data.joined_at,data.pw_hash);return;}}
+      catch{if(sess.name){await boot(sess.username,sess.name,sess.joined||new Date().toISOString(),sess.pwHash||'');return;}}
     }
   }catch(e){}
   $('auth').style.display='flex';
