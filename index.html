@@ -470,16 +470,31 @@ function lsLoad(u){try{const d=JSON.parse(localStorage.getItem('tx3_'+u)||'null'
 
 async function dbSave(){
   if(!cu||!S.ccash)return;
+  // never overwrite real data with empty state
+  const hasHoldings=Object.keys(S.h||{}).length>0;
+  const hasOrders=(S.orders||[]).length>0;
+  const freshAccount=S.ccash===100000&&S.scash===10000&&!hasHoldings&&!hasOrders;
   try{
     const{tv,total:pnl}=calcPnl();
-    await sb.from('traders').upsert({username:cu.username,name:cu.name,ccash:S.ccash,scash:S.scash,holdings:S.h,orders:S.orders,budget:S.budget,inv:S.inv,realised_pnl:S.rPnl||0,pnl,net_worth:S.ccash+S.scash+tv,trade_count:S.orders.length,updated_at:new Date().toISOString()},{onConflict:'username'});
+    const payload={username:cu.username,name:cu.name,ccash:S.ccash,scash:S.scash,holdings:S.h,orders:S.orders,budget:S.budget,inv:S.inv,realised_pnl:S.rPnl||0,pnl,net_worth:S.ccash+S.scash+tv,trade_count:S.orders.length,updated_at:new Date().toISOString()};
+    // if fresh account, only save non-trading fields to avoid wiping real data
+    if(freshAccount){delete payload.holdings;delete payload.orders;delete payload.ccash;delete payload.scash;delete payload.pnl;delete payload.net_worth;delete payload.trade_count;}
+    await sb.from('traders').upsert(payload,{onConflict:'username'});
   }catch(e){}
 }
 async function dbLoad(u){
   let remote=null;
   try{const{data,error}=await sb.from('traders').select('*').eq('username',u).single();if(!error&&data?.ccash!==undefined)remote={ccash:data.ccash,scash:data.scash,h:data.holdings||{},orders:data.orders||[],budget:data.budget||0,inv:data.inv||0,rPnl:data.realised_pnl||0};}catch(e){}
   const local=lsLoad(u);
-  if(remote&&local)return(local.orders?.length||0)>(remote.orders?.length||0)?local:remote;
+  // always use whichever source has more data
+  if(remote&&local){
+    const remoteOrders=remote.orders?.length||0;
+    const localOrders=local.orders?.length||0;
+    const remoteHoldings=Object.keys(remote.h||{}).length;
+    const localHoldings=Object.keys(local.h||{}).length;
+    if(localOrders>remoteOrders||localHoldings>remoteHoldings)return local;
+    return remote;
+  }
   return remote||local||null;
 }
 
@@ -519,7 +534,7 @@ async function fetchCryptoPrices(){
   chkAlerts();refAll();
 }
 
-function afterPriceFetch(){chkAlerts();renderSB();renderStats();if(selId&&!isCrypto(selId)&&prices[selId])updChartHeader(selId);if(curPage==='markets')renderM();if(curPage==='portfolio')renderPort();renderTick();if(cu)dbSave();}
+function afterPriceFetch(){chkAlerts();renderSB();renderStats();if(selId&&!isCrypto(selId)&&prices[selId])updChartHeader(selId);if(curPage==='markets')renderM();if(curPage==='portfolio')renderPort();renderTick();}
 function setDot(ok,msg){const d=$('ldot');if(!d)return;d.style.color=ok?'var(--g)':'var(--y)';d.title=msg;}
 function flashPrice(id,up){document.querySelectorAll('.si').forEach(el=>{if(el.getAttribute('onclick')?.includes(`'${id}'`)){const pe=el.querySelector('.sp');if(pe){pe.classList.remove('flash-up','flash-down');void pe.offsetWidth;pe.classList.add(up?'flash-up':'flash-down');}}});}
 function updChartHeader(id){const pr=prices[id];if(!pr)return;const up=pr.c>=0;$('cprice').textContent=fU(pr.p);$('cinr').textContent=fINR(pr.p);$('cch').textContent=(up?'▲':'▼')+' '+Math.abs(pr.c).toFixed(2)+'% today';$('cch').className='cch '+(up?'u':'d');$('clo').textContent=fU(pr.lo);$('chi').textContent=fU(pr.hi);syncUSD();}
