@@ -580,11 +580,10 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 // ─── PRICE SERVER CONFIG ───
-// ─── PRICE SERVER URL ───────────────────────────────────────────────────────
-// LOCAL:  keep as 'http://localhost:5000'  (run server.py on your machine)
-// DEPLOYED: replace with your Railway URL e.g. 'https://tradex-xxxx.up.railway.app'
-const SERVER_URL = 'https://tradex-ndhf.onrender.com';
-// ────────────────────────────────────────────────────────────────────────────
+// Auto-detect server URL — works locally AND on Render/any deployment
+const SERVER_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:5000'
+  : window.location.origin; // on Render, calls itself
 
 let serverAlive = false; // tracks if yfinance server is reachable
 
@@ -667,7 +666,7 @@ const isCrypto=id=>!!CRYPTOS.find(c=>c.id===id);
 async function fetchStockServerPrices() {
   if (!SERVER_URL) return false;
   try {
-    const r = await fetch(`${SERVER_URL}/api/prices`, { signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${SERVER_URL}/api/prices`, { signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw 0;
     const d = await r.json();
     if (!d.ok || !d.prices || !Object.keys(d.prices).length) return false;
