@@ -725,13 +725,11 @@ async function dbSave() {
     localStorage.setItem('tradex_backup_'+currentUser.username, JSON.stringify(backup));
   } catch(e) { console.warn('localStorage save failed', e); }
 
-  // Then save to Supabase
+  // Then save to Supabase using UPDATE (never insert — registration handles insert)
   try {
     const {tv, pnl} = calcPortfolio();
     const net = S.ccash + S.scash + tv;
-    const {error} = await sb.from('traders').upsert({
-      username: currentUser.username,
-      name: currentUser.name,
+    const {error} = await sb.from('traders').update({
       ccash: S.ccash,
       scash: S.scash,
       holdings: S.h,
@@ -743,7 +741,7 @@ async function dbSave() {
       pnl: pnl,
       trade_count: S.orders.length,
       updated_at: new Date().toISOString()
-    }, {onConflict: 'username'});
+    }).eq('username', currentUser.username);
     if (error) console.warn('Supabase save error:', error.message);
   } catch(e) {
     console.warn('Supabase save exception (data is safe in localStorage):', e.message);
