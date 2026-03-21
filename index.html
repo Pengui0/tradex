@@ -325,12 +325,12 @@ canvas#spark { width:100%; height:120px; display:block; }
     <div class="live-dot" id="price-source-dot" title="Price source">LIVE</div>
     <div class="wallet-pill" title="Crypto Wallet">
       <span style="font-size:.75rem">🪙</span>
-      <div><div class="wp-label">Crypto</div><div class="wp-val" id="h-ccash">$100,000</div></div>
+      <div><div class="wp-label">Crypto</div><div class="wp-val" id="h-ccash">$90,000</div></div>
       <div class="wp-inr" id="h-cinr">₹83.5L</div>
     </div>
     <div class="wallet-pill" title="Stock Wallet" style="border-color:rgba(255,204,68,.25)">
       <span style="font-size:.75rem">📈</span>
-      <div><div class="wp-label">Stocks</div><div class="wp-val" id="h-scash" style="color:var(--yellow)">$3,614</div></div>
+      <div><div class="wp-label">Stocks</div><div class="wp-val" id="h-scash" style="color:var(--yellow)">$10,000</div></div>
       <div class="wp-inr" id="h-sinr">₹3.01L</div>
     </div>
     <div class="hbtn" onclick="doReset()" title="Reset Account">↺</div>
@@ -367,11 +367,11 @@ canvas#spark { width:100%; height:120px; display:block; }
 <!-- TRADE -->
 <div class="pg on" id="pg-trade">
   <div class="stats">
-    <div class="stat blue"><div class="stat-label">🪙 Crypto Wallet</div><div class="stat-val" id="s-ccash">$100,000</div><div class="stat-sub" id="s-ccash-inr">₹83.5L</div></div>
-    <div class="stat yellow"><div class="stat-label">📈 Stock Wallet</div><div class="stat-val" id="s-scash" style="color:var(--yellow)">$3,614</div><div class="stat-sub" id="s-scash-inr">₹3.01L</div></div>
+    <div class="stat blue"><div class="stat-label">🪙 Crypto Wallet</div><div class="stat-val" id="s-ccash">$90,000</div><div class="stat-sub" id="s-ccash-inr">₹75.15L</div></div>
+    <div class="stat yellow"><div class="stat-label">📈 Stock Wallet</div><div class="stat-val" id="s-scash" style="color:var(--yellow)">$10,000</div><div class="stat-sub" id="s-scash-inr">₹8.35L</div></div>
     <div class="stat green"><div class="stat-label">Holdings Value</div><div class="stat-val g" id="s-hval">$0.00</div><div class="stat-sub" id="s-hval-inr">₹0</div></div>
     <div class="stat purple"><div class="stat-label">Total P&L</div><div class="stat-val" id="s-pnl">$0.00</div><div class="stat-sub" id="s-pnlp">+0.00%</div></div>
-    <div class="stat blue"><div class="stat-label">Net Worth</div><div class="stat-val" id="s-net">$103,614</div><div class="stat-sub" id="s-net-inr">₹86.5L</div></div>
+    <div class="stat blue"><div class="stat-label">Net Worth</div><div class="stat-val" id="s-net">$100,000</div><div class="stat-sub" id="s-net-inr">₹83.5L</div></div>
   </div>
   <div class="trade-grid">
     <div class="chart-card">
@@ -590,7 +590,7 @@ let serverAlive = false; // tracks if yfinance server is reachable
 const INR = 83.5;
 const $ = id => document.getElementById(id);
 
-let S = { ccash:100000, scash:3614, h:{}, orders:[], budget:0, inv:0, realisedPnl:0 };
+let S = { ccash:90000, scash:10000, h:{}, orders:[], budget:0, inv:0, realisedPnl:0 };
 let prices = {};
 let selId = null, mode = 'buy', ltab = 'stocks', curPage = 'trade', sectorFilter = 'All';
 let currentUser = null;
@@ -756,7 +756,7 @@ async function dbLoad(username) {
       // Also update localStorage with fresh Supabase data
       try {
         const backup = {
-          ccash: data.ccash, scash: data.scash??3614,
+          ccash: data.ccash, scash: data.scash??10000,
           h: data.holdings??{}, orders: data.orders??[],
           budget: data.budget??0, inv: data.inv??0,
           realisedPnl: data.realised_pnl??0, savedAt: Date.now()
@@ -764,8 +764,8 @@ async function dbLoad(username) {
         localStorage.setItem('tradex_backup_'+username, JSON.stringify(backup));
       } catch(e2){}
       return {
-        ccash: data.ccash ?? 100000,
-        scash: data.scash ?? 3614,
+        ccash: data.ccash ?? 90000,
+        scash: data.scash ?? 10000,
         h: data.holdings ?? {},
         orders: data.orders ?? [],
         budget: data.budget ?? 0,
@@ -794,10 +794,10 @@ async function dbRegister(username, name, pwHash) {
   const {data,error} = await sb.from('traders').insert({
     username, name,
     pw_hash: pwHash,
-    ccash: 100000, scash: 3614,
+    ccash: 90000, scash: 10000,
     holdings: {}, orders: [],
     budget: 0, inv: 0, realised_pnl: 0,
-    net_worth: 103614, pnl: 0, trade_count: 0,
+    net_worth: 100000, pnl: 0, trade_count: 0,
     joined_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }).select().single();
@@ -1253,10 +1253,10 @@ function changePassword(){
 
 // ─── RESET ───
 function doReset(){
-  if(!confirm('Reset account?\nAll trades & holdings will be cleared.\n\nCrypto → $100,000\nStocks → ₹3L'))return;
-  S={ccash:100000,scash:3614,h:{},orders:[],budget:0,inv:0,realisedPnl:0};
+  if(!confirm('Reset account?\nAll trades & holdings will be cleared.\n\nCrypto → $90,000\nStocks → $10,000'))return;
+  S={ccash:90000,scash:10000,h:{},orders:[],budget:0,inv:0,realisedPnl:0};
   dbSave();
-  toast('Account Reset','Crypto: $100K · Stocks: ₹3L','success');refreshAll();
+  toast('Account Reset','Crypto: $90K · Stocks: $10K','success');refreshAll();
 }
 
 // ─── REFRESH ───
@@ -1332,8 +1332,8 @@ async function bootUser(username,name,joinedAt,pwH){
 
   if (saved) {
     S = {
-      ccash:       typeof saved.ccash === 'number'       ? saved.ccash       : 100000,
-      scash:       typeof saved.scash === 'number'       ? saved.scash       : 3614,
+      ccash:       typeof saved.ccash === 'number'       ? saved.ccash       : 90000,
+      scash:       typeof saved.scash === 'number'       ? saved.scash       : 10000,
       h:           saved.h           && typeof saved.h === 'object'   ? saved.h           : {},
       orders:      Array.isArray(saved.orders)           ? saved.orders      : [],
       budget:      typeof saved.budget === 'number'      ? saved.budget      : 0,
@@ -1341,7 +1341,7 @@ async function bootUser(username,name,joinedAt,pwH){
       realisedPnl: typeof saved.realisedPnl === 'number' ? saved.realisedPnl : 0
     };
   } else {
-    S = {ccash:100000, scash:3614, h:{}, orders:[], budget:0, inv:0, realisedPnl:0};
+    S = {ccash:90000, scash:10000, h:{}, orders:[], budget:0, inv:0, realisedPnl:0};
   }
 
   $('auth').style.display='none';
