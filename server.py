@@ -235,8 +235,14 @@ def serve_static(filename='index.html'):
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
-# ── Auto-start background thread whether run via gunicorn or directly ─────────
-# This runs when imported by gunicorn OR when run directly with python server.py
+# ── Auto-start: fetch prices immediately on import (works with gunicorn) ──────
+print("[TradeX] Fetching initial prices on startup...")
+try:
+    fetch_all()
+except Exception as e:
+    print(f"[TradeX] Initial fetch error: {e}")
+
+# Then keep refreshing in background every 30s
 _bg_thread = threading.Thread(target=price_loop, daemon=True)
 _bg_thread.start()
 print("[TradeX] Background price fetch started.")
